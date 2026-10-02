@@ -15,15 +15,22 @@ public class SearchRepository {
         List<SearchResult> results = new ArrayList<>();
 
         String sql = """
-                SELECT id, title, url
-                FROM documents
-                WHERE search_vector @@ plainto_tsquery('english', ?)
-                """;
+        SELECT id, title, url, description,
+               ts_rank(
+                   search_vector,
+                   plainto_tsquery('english', ?)
+               ) AS rank
+        FROM documents
+        WHERE search_vector @@ plainto_tsquery('english', ?)
+        ORDER BY rank DESC
+        LIMIT 10
+        """;
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setString(1, query);
+            statement.setString(2, query);
 
             ResultSet result = statement.executeQuery();
 
@@ -31,7 +38,8 @@ public class SearchRepository {
                 results.add(new SearchResult(
                         result.getLong("id"),
                         result.getString("title"),
-                        result.getString("url")
+                        result.getString("url"),
+                        result.getString("description")
                 ));
             }
 
