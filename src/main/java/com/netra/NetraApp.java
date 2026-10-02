@@ -18,7 +18,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
-
+import javafx.scene.control.Hyperlink;
+import java.awt.Desktop;
+import java.net.URI;
 import java.util.List;
 
 public class NetraApp extends Application {
@@ -212,16 +214,27 @@ public class NetraApp extends Application {
                     -fx-font-weight: bold;
                     """);
 
-            Label url = new Label(
+            Hyperlink url = new Hyperlink(
                     result.getUrl()
             );
 
             url.setWrapText(true);
 
             url.setStyle("""
-                    -fx-text-fill: #8CFFB8;
-                    -fx-font-size: 13px;
-                    """);
+        -fx-text-fill: #8CFFB8;
+        -fx-font-size: 13px;
+        -fx-border-color: transparent;
+        """);
+
+            url.setOnAction(e -> {
+                try {
+                    Desktop.getDesktop().browse(
+                            new URI(result.getUrl())
+                    );
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
 
             VBox card = new VBox(
                     5,
