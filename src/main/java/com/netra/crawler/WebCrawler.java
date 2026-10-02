@@ -21,8 +21,26 @@ public class WebCrawler {
                     .get();
 
             String title = page.title();
-            String description = page.select("meta[name=description]")
-                    .attr("content");
+
+            String description = page.select(
+                    "meta[name=description]"
+            ).attr("content").trim();
+
+            // Fallback when meta description is empty
+            if (description.isEmpty()) {
+
+                description = page.select("p")
+                        .stream()
+                        .map(p -> p.text().trim())
+                        .filter(text -> !text.isEmpty())
+                        .findFirst()
+                        .orElse("");
+            }
+
+            // Keep description short for search results
+            if (description.length() > 250) {
+                description = description.substring(0, 250) + "...";
+            }
 
             String content = page.body().text();
 
@@ -35,6 +53,7 @@ public class WebCrawler {
 
             System.out.println("Crawled: " + url);
             System.out.println("Title: " + title);
+            System.out.println("Description: " + description);
 
         } catch (Exception e) {
             System.out.println("Failed to crawl: " + url);
