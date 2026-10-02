@@ -5,15 +5,28 @@ import java.sql.PreparedStatement;
 
 public class DocumentRepository {
 
-    public void save(String url, String title, String content, String description) {
+    public void save(
+            String url,
+            String title,
+            String content,
+            String description
+    ) {
 
         String sql = """
-                INSERT INTO documents (url, title, content, description)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO documents
+                    (url, title, content, description)
+                VALUES
+                    (?, ?, ?, ?)
+                ON CONFLICT (url)
+                DO UPDATE SET
+                    title = EXCLUDED.title,
+                    content = EXCLUDED.content,
+                    description = EXCLUDED.description
                 """;
 
         try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
             statement.setString(1, url);
             statement.setString(2, title);
@@ -22,7 +35,9 @@ public class DocumentRepository {
 
             statement.executeUpdate();
 
-            System.out.println("Document saved successfully!");
+            System.out.println(
+                    "Document saved/updated successfully!"
+            );
 
         } catch (Exception e) {
             e.printStackTrace();
