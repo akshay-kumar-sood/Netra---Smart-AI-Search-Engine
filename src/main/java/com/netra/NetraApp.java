@@ -15,6 +15,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import com.netra.search.SearchRepository;
+import com.netra.search.SearchResult;
+import java.util.List;
 
 public class NetraApp extends Application {
 
@@ -95,8 +98,20 @@ public class NetraApp extends Application {
 
     private void search(TextField field) {
         String query = field.getText().trim();
-        if (!query.isEmpty()) {
-            System.out.println("Searching: " + query);
+
+        if (query.isEmpty()) {
+            return;
+        }
+
+        SearchRepository repository = new SearchRepository();
+        List<SearchResult> results = repository.search(query);
+
+        System.out.println("Results found: " + results.size());
+
+        for (SearchResult result : results) {
+            System.out.println(result.getTitle());
+            System.out.println(result.getUrl());
+            System.out.println("-------------------");
         }
     }
 
