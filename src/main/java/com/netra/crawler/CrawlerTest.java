@@ -6,6 +6,9 @@ public class CrawlerTest {
 
         WebCrawler crawler = new WebCrawler();
 
-        crawler.crawl("https://en.wikipedia.org/wiki/Java_(programming_language)");
+//        crawler.crawl("https://en.wikipedia.org/wiki/Java_(programming_language)");
+        crawler.crawl("https://docs.oracle.com/en/java/");
+        crawler.crawl("https://www.w3schools.com/java/");
+        crawler.crawl("https://www.geeksforgeeks.org/java/");
     }
 }
