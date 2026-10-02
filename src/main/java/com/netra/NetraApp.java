@@ -2,11 +2,13 @@ package com.netra;
 
 import com.netra.search.SearchRepository;
 import com.netra.search.SearchResult;
+import com.netra.search.SnippetGenerator;
 
 import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
@@ -18,7 +20,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
-import javafx.scene.control.Hyperlink;
+
 import java.awt.Desktop;
 import java.net.URI;
 import java.util.List;
@@ -39,7 +41,8 @@ public class NetraApp extends Application {
         ImageView background = new ImageView(new Image(
                 getClass().getResourceAsStream(
                         "/com/netra/images/earth_network_bg.jpg"
-                )));
+                )
+        ));
 
         background.setPreserveRatio(false);
         background.fitWidthProperty().bind(stage.widthProperty());
@@ -111,21 +114,17 @@ public class NetraApp extends Application {
 
         topics.setAlignment(Pos.CENTER);
 
-        // Topic button actions
-
         java.setOnAction(e -> search.setText("Java"));
         spring.setOnAction(e -> search.setText("Spring Boot"));
         ai.setOnAction(e -> search.setText("AI"));
         ml.setOnAction(e -> search.setText("Machine Learning"));
         cloud.setOnAction(e -> search.setText("Cloud"));
 
-        // Search button
+        // Search
 
         go.setOnAction(e ->
                 openSearchResults(stage, search.getText())
         );
-
-        // Press Enter
 
         search.setOnAction(e ->
                 openSearchResults(stage, search.getText())
@@ -140,7 +139,6 @@ public class NetraApp extends Application {
         );
 
         content.setAlignment(Pos.CENTER);
-
         content.setTranslateY(-160);
 
         StackPane root = new StackPane(
@@ -195,10 +193,9 @@ public class NetraApp extends Application {
                 """);
 
         VBox resultsBox = new VBox(12);
-
         resultsBox.setMaxWidth(850);
 
-        // Results
+        // Display search results
 
         for (SearchResult result : results) {
 
@@ -209,10 +206,12 @@ public class NetraApp extends Application {
             title.setWrapText(true);
 
             title.setStyle("""
-                    -fx-text-fill: white;
-                    -fx-font-size: 18px;
+                    -fx-text-fill: #00C853;
+                    -fx-font-size: 19px;
                     -fx-font-weight: bold;
                     """);
+
+            // Clickable URL
 
             Hyperlink url = new Hyperlink(
                     result.getUrl()
@@ -221,25 +220,48 @@ public class NetraApp extends Application {
             url.setWrapText(true);
 
             url.setStyle("""
-        -fx-text-fill: #8CFFB8;
-        -fx-font-size: 13px;
-        -fx-border-color: transparent;
-        """);
+                    -fx-text-fill: #4DA6FF;
+                    -fx-font-size: 13px;
+                    -fx-border-color: transparent;
+                    """);
 
             url.setOnAction(e -> {
+
                 try {
+
                     Desktop.getDesktop().browse(
                             new URI(result.getUrl())
                     );
+
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
             });
 
+            // Search snippet
+
+            String snippet = SnippetGenerator.generate(
+                    result.getContent(),
+                    query
+            );
+
+            Label description = new Label(snippet);
+
+            description.setWrapText(true);
+            description.setMaxHeight(78);
+
+            description.setStyle("""
+                    -fx-text-fill: #b8c9c0;
+                    -fx-font-size: 14px;
+                    """);
+
+            // Result card
+
             VBox card = new VBox(
                     5,
                     title,
-                    url
+                    url,
+                    description
             );
 
             card.setMaxWidth(850);
@@ -249,7 +271,7 @@ public class NetraApp extends Application {
                     -fx-background-radius: 12;
                     -fx-border-color: rgba(0,255,136,0.25);
                     -fx-border-radius: 12;
-                    -fx-padding: 14;
+                    -fx-padding: 16;
                     """);
 
             resultsBox.getChildren().add(card);
@@ -342,7 +364,7 @@ public class NetraApp extends Application {
         button.setOnMouseEntered(e ->
                 button.setStyle("""
                         -fx-background-color:
-                            rgba(0,255,136,0.10);
+                                rgba(0,255,136,0.10);
                         -fx-text-fill: #00ff88;
                         -fx-background-radius: 16;
                         -fx-font-size: 16px;

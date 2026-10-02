@@ -17,6 +17,7 @@ public class SearchTest {
             System.out.println("Title: " + result.getTitle());
             System.out.println("URL: " + result.getUrl());
             System.out.println("----------------------");
+            System.out.println("Content: " + result.getContent());
         }
     }
 }

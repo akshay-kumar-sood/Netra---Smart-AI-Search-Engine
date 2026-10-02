@@ -12,10 +12,14 @@ public class SearchRepository {
 
     public List<SearchResult> search(String query) {
 
+        if (query == null || query.isBlank()) {
+            return new ArrayList<>();
+        }
+
         List<SearchResult> results = new ArrayList<>();
 
         String sql = """
-        SELECT id, title, url, description,
+        SELECT id, title, url, description,content,
                ts_rank(
                    search_vector,
                    plainto_tsquery('english', ?)
@@ -39,7 +43,8 @@ public class SearchRepository {
                         result.getLong("id"),
                         result.getString("title"),
                         result.getString("url"),
-                        result.getString("description")
+                        result.getString("description"),
+                        result.getString("content")
                 ));
             }
 
