@@ -95,8 +95,6 @@ public class NetraApp extends Application {
 
         searchBox.setAlignment(Pos.CENTER);
 
-        // Topic buttons
-
         Button java = topicButton("Java");
         Button spring = topicButton("Spring Boot");
         Button ai = topicButton("AI");
@@ -120,14 +118,22 @@ public class NetraApp extends Application {
         ml.setOnAction(e -> search.setText("Machine Learning"));
         cloud.setOnAction(e -> search.setText("Cloud"));
 
-        // Search
+        // New search always starts from page 1
 
         go.setOnAction(e ->
-                openSearchResults(stage, search.getText())
+                openSearchResults(
+                        stage,
+                        search.getText(),
+                        1
+                )
         );
 
         search.setOnAction(e ->
-                openSearchResults(stage, search.getText())
+                openSearchResults(
+                        stage,
+                        search.getText(),
+                        1
+                )
         );
 
         VBox content = new VBox(
@@ -167,12 +173,13 @@ public class NetraApp extends Application {
 
     private void openSearchResults(
             Stage stage,
-            String query
+            String query,
+            int page
     ) {
 
-        query = query.trim();
+        String searchQuery = query.trim();
 
-        if (query.isEmpty()) {
+        if (searchQuery.isEmpty()) {
             return;
         }
 
@@ -180,10 +187,21 @@ public class NetraApp extends Application {
                 new SearchRepository();
 
         List<SearchResult> results =
-                repository.search(query);
+                repository.search(
+                        searchQuery,
+                        page
+                );
+
+        // Check whether another page exists
+
+        boolean hasNext =
+                repository.hasNext(
+                        searchQuery,
+                        page
+                );
 
         Label heading = new Label(
-                "Search results for: " + query
+                "Search results for: " + searchQuery
         );
 
         heading.setStyle("""
@@ -195,7 +213,9 @@ public class NetraApp extends Application {
         VBox resultsBox = new VBox(12);
         resultsBox.setMaxWidth(850);
 
-        // Display search results
+        // =========================
+        // DISPLAY RESULTS
+        // =========================
 
         for (SearchResult result : results) {
 
@@ -211,7 +231,7 @@ public class NetraApp extends Application {
                     -fx-font-weight: bold;
                     """);
 
-            // Clickable URL
+            // URL
 
             Hyperlink url = new Hyperlink(
                     result.getUrl()
@@ -238,14 +258,16 @@ public class NetraApp extends Application {
                 }
             });
 
-            // Search snippet
+            // Snippet
 
-            String snippet = SnippetGenerator.generate(
-                    result.getContent(),
-                    query
-            );
+            String snippet =
+                    SnippetGenerator.generate(
+                            result.getContent(),
+                            searchQuery
+                    );
 
-            Label description = new Label(snippet);
+            Label description =
+                    new Label(snippet);
 
             description.setWrapText(true);
             description.setMaxHeight(78);
@@ -277,12 +299,15 @@ public class NetraApp extends Application {
             resultsBox.getChildren().add(card);
         }
 
-        // No results
+        // =========================
+        // NO RESULTS
+        // =========================
 
         if (results.isEmpty()) {
 
             Label noResult = new Label(
-                    "No results found for \"" + query + "\""
+                    "No results found for \"" +
+                            searchQuery + "\""
             );
 
             noResult.setStyle("""
@@ -290,14 +315,88 @@ public class NetraApp extends Application {
                     -fx-font-size: 16px;
                     """);
 
-            resultsBox.getChildren().add(
-                    noResult
-            );
+            resultsBox.getChildren().add(noResult);
         }
 
-        // Back button
+        // =========================
+        // PAGINATION
+        // =========================
 
-        Button back = new Button("← Back");
+        Button previous =
+                new Button("← Previous");
+
+        Button next =
+                new Button("Next →");
+
+        Label pageLabel =
+                new Label("Page " + page);
+
+        pageLabel.setStyle("""
+                -fx-text-fill: #8CFFB8;
+                -fx-font-size: 14px;
+                -fx-font-weight: bold;
+                """);
+
+        // Previous is disabled on page 1
+
+        previous.setDisable(page == 1);
+
+        // Next is disabled when there is
+        // no next page
+
+        next.setDisable(!hasNext);
+
+        previous.setStyle("""
+                -fx-background-color: #101815;
+                -fx-text-fill: #8CFFB8;
+                -fx-background-radius: 8;
+                -fx-padding: 8 14;
+                -fx-cursor: hand;
+                """);
+
+        next.setStyle("""
+                -fx-background-color: #101815;
+                -fx-text-fill: #8CFFB8;
+                -fx-background-radius: 8;
+                -fx-padding: 8 14;
+                -fx-cursor: hand;
+                """);
+
+        // Previous page
+
+        previous.setOnAction(e ->
+                openSearchResults(
+                        stage,
+                        searchQuery,
+                        page - 1
+                )
+        );
+
+        // Next page
+
+        next.setOnAction(e ->
+                openSearchResults(
+                        stage,
+                        searchQuery,
+                        page + 1
+                )
+        );
+
+        HBox pagination = new HBox(
+                15,
+                previous,
+                pageLabel,
+                next
+        );
+
+        pagination.setAlignment(Pos.CENTER);
+
+        // =========================
+        // BACK BUTTON
+        // =========================
+
+        Button back =
+                new Button("← Back");
 
         back.setStyle("""
                 -fx-background-color: transparent;
@@ -310,33 +409,35 @@ public class NetraApp extends Application {
                 showHomePage(stage)
         );
 
+        // =========================
+        // MAIN CONTENT
+        // =========================
+
         VBox content = new VBox(
                 20,
                 heading,
                 resultsBox,
+                pagination,
                 back
         );
 
-        content.setAlignment(
-                Pos.TOP_CENTER
-        );
-
+        content.setAlignment(Pos.TOP_CENTER);
         content.setMaxWidth(900);
 
-        StackPane root = new StackPane(
-                content
-        );
+        StackPane root =
+                new StackPane(content);
 
         root.setStyle("""
                 -fx-background-color: #020806;
                 -fx-padding: 50;
                 """);
 
-        Scene resultsScene = new Scene(
-                root,
-                1200,
-                750
-        );
+        Scene resultsScene =
+                new Scene(
+                        root,
+                        1200,
+                        750
+                );
 
         stage.setTitle(
                 "NETRA - Search Results"
@@ -351,7 +452,8 @@ public class NetraApp extends Application {
 
     private Button topicButton(String text) {
 
-        Button button = new Button(text);
+        Button button =
+                new Button(text);
 
         button.setStyle("""
                 -fx-background-color: transparent;

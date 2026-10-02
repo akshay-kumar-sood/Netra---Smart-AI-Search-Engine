@@ -8,7 +8,7 @@ public class SearchTest {
 
         SearchRepository repository = new SearchRepository();
 
-        List<SearchResult> results = repository.search("java");
+        List<SearchResult> results = repository.search("java",1);
 
         System.out.println("Results found: " + results.size());
 

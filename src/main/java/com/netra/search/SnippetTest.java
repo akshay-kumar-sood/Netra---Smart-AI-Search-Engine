@@ -6,7 +6,7 @@ public class SnippetTest {
 
         SearchRepository repository = new SearchRepository();
 
-        var results = repository.search("java");
+        var results = repository.search("java",1);
 
         for (SearchResult result : results) {
 
