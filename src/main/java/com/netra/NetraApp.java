@@ -3,8 +3,12 @@ package com.netra;
 import com.netra.search.SearchRepository;
 import com.netra.search.SearchResult;
 import com.netra.search.SnippetGenerator;
+import com.netra.websearch.WebSearchManager;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.concurrent.Task;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -20,12 +24,16 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.awt.Desktop;
 import java.net.URI;
 import java.util.List;
 
 public class NetraApp extends Application {
+
+    private Label searchingLabel;
+    private Timeline searchingAnimation;
 
     @Override
     public void start(Stage stage) {
@@ -49,6 +57,7 @@ public class NetraApp extends Application {
         background.fitHeightProperty().bind(stage.heightProperty());
 
         Label name = new Label("NETRA");
+
         name.setTextFill(Color.WHITE);
         name.setFont(Font.font(
                 "Arial",
@@ -57,10 +66,12 @@ public class NetraApp extends Application {
         ));
 
         Label slogan = new Label("Navigate the Web Smarter");
+
         slogan.setTextFill(Color.web("#8CFFB8"));
         slogan.setFont(Font.font("Arial", 18));
 
         TextField search = new TextField();
+
         search.setPromptText("Search the web...");
         search.setPrefSize(650, 54);
 
@@ -77,6 +88,7 @@ public class NetraApp extends Application {
                 """);
 
         Button go = new Button("SEARCH");
+
         go.setPrefSize(115, 54);
 
         go.setStyle("""
@@ -87,13 +99,32 @@ public class NetraApp extends Application {
                 -fx-cursor: hand;
                 """);
 
+        // =========================
+        // SEARCHING LABEL
+        // =========================
+
+        searchingLabel = new Label();
+
+        searchingLabel.setStyle("""
+                -fx-text-fill: #8CFFB8;
+                -fx-font-size: 15px;
+                -fx-font-weight: bold;
+                """);
+
+        searchingLabel.setVisible(false);
+
         HBox searchBox = new HBox(
                 10,
                 search,
-                go
+                go,
+                searchingLabel
         );
 
         searchBox.setAlignment(Pos.CENTER);
+
+        // =========================
+        // TOPIC BUTTONS
+        // =========================
 
         Button java = topicButton("Java");
         Button spring = topicButton("Spring Boot");
@@ -112,13 +143,29 @@ public class NetraApp extends Application {
 
         topics.setAlignment(Pos.CENTER);
 
-        java.setOnAction(e -> search.setText("Java"));
-        spring.setOnAction(e -> search.setText("Spring Boot"));
-        ai.setOnAction(e -> search.setText("AI"));
-        ml.setOnAction(e -> search.setText("Machine Learning"));
-        cloud.setOnAction(e -> search.setText("Cloud"));
+        java.setOnAction(e ->
+                search.setText("Java")
+        );
 
-        // New search always starts from page 1
+        spring.setOnAction(e ->
+                search.setText("Spring Boot")
+        );
+
+        ai.setOnAction(e ->
+                search.setText("AI")
+        );
+
+        ml.setOnAction(e ->
+                search.setText("Machine Learning")
+        );
+
+        cloud.setOnAction(e ->
+                search.setText("Cloud")
+        );
+
+        // =========================
+        // SEARCH BUTTON
+        // =========================
 
         go.setOnAction(e ->
                 openSearchResults(
@@ -168,7 +215,7 @@ public class NetraApp extends Application {
     }
 
     // =========================
-    // SEARCH RESULTS PAGE
+    // SEARCH
     // =========================
 
     private void openSearchResults(
@@ -183,16 +230,205 @@ public class NetraApp extends Application {
             return;
         }
 
-        SearchRepository repository =
-                new SearchRepository();
+        startSearchingAnimation();
 
-        List<SearchResult> results =
-                repository.search(
-                        searchQuery,
-                        page
+        Task<List<SearchResult>> task =
+                new Task<>() {
+
+                    @Override
+                    protected List<SearchResult> call() {
+
+                        SearchRepository repository =
+                                new SearchRepository();
+
+                        System.out.println(
+                                "Searching database for: "
+                                        + searchQuery
+                        );
+
+                        List<SearchResult> results =
+                                repository.search(
+                                        searchQuery,
+                                        page
+                                );
+
+                        /*
+                         * Crawl only when:
+                         *
+                         * 1. Database has zero results
+                         * 2. User is on page 1
+                         */
+
+                        if (results.isEmpty() && page == 1) {
+
+                            System.out.println(
+                                    "No local results found."
+                            );
+
+                            System.out.println(
+                                    "Starting automatic Wikipedia search..."
+                            );
+
+                            WebSearchManager manager =
+                                    new WebSearchManager();
+
+                            manager.searchAndCrawl(
+                                    searchQuery
+                            );
+
+                            System.out.println(
+                                    "Wikipedia crawling completed."
+                            );
+
+                            // Search database again
+
+                            results =
+                                    repository.search(
+                                            searchQuery,
+                                            1
+                                    );
+                        }
+
+                        return results;
+                    }
+                };
+
+        // =========================
+        // SEARCH SUCCESS
+        // =========================
+
+        task.setOnSucceeded(event -> {
+
+            stopSearchingAnimation();
+
+            List<SearchResult> results =
+                    task.getValue();
+
+            SearchRepository repository =
+                    new SearchRepository();
+
+            System.out.println(
+                    "Results found: "
+                            + results.size()
+            );
+
+            displaySearchResults(
+                    stage,
+                    searchQuery,
+                    page,
+                    results,
+                    repository
+            );
+        });
+
+        // =========================
+        // SEARCH FAILED
+        // =========================
+
+        task.setOnFailed(event -> {
+
+            stopSearchingAnimation();
+
+            System.out.println(
+                    "Search failed."
+            );
+
+            Throwable error =
+                    task.getException();
+
+            if (error != null) {
+                error.printStackTrace();
+            }
+
+            SearchRepository repository =
+                    new SearchRepository();
+
+            displaySearchResults(
+                    stage,
+                    searchQuery,
+                    page,
+                    List.of(),
+                    repository
+            );
+        });
+
+        Thread thread =
+                new Thread(task);
+
+        thread.setDaemon(true);
+
+        thread.setName(
+                "netra-search-task"
+        );
+
+        thread.start();
+    }
+
+    // =========================
+    // SEARCHING ANIMATION
+    // =========================
+
+    private void startSearchingAnimation() {
+
+        if (searchingLabel == null) {
+            return;
+        }
+
+        searchingLabel.setVisible(true);
+
+        searchingAnimation =
+                new Timeline(
+                        new KeyFrame(
+                                Duration.seconds(0.4),
+                                e -> searchingLabel.setText(
+                                        "Searching."
+                                )
+                        ),
+                        new KeyFrame(
+                                Duration.seconds(0.8),
+                                e -> searchingLabel.setText(
+                                        "Searching.."
+                                )
+                        ),
+                        new KeyFrame(
+                                Duration.seconds(1.2),
+                                e -> searchingLabel.setText(
+                                        "Searching..."
+                                )
+                        )
                 );
 
-        // Check whether another page exists
+        searchingAnimation.setCycleCount(
+                Timeline.INDEFINITE
+        );
+
+        searchingAnimation.play();
+    }
+
+    private void stopSearchingAnimation() {
+
+        if (searchingAnimation != null) {
+            searchingAnimation.stop();
+            searchingAnimation = null;
+        }
+
+        if (searchingLabel != null) {
+            searchingLabel.setVisible(false);
+            searchingLabel.setText("");
+        }
+    }
+
+    // =========================
+    // DISPLAY RESULTS
+    // =========================
+
+    private void displaySearchResults(
+            Stage stage,
+            String searchQuery,
+            int page,
+            List<SearchResult> results,
+            SearchRepository repository
+    ) {
 
         boolean hasNext =
                 repository.hasNext(
@@ -200,9 +436,11 @@ public class NetraApp extends Application {
                         page
                 );
 
-        Label heading = new Label(
-                "Search results for: " + searchQuery
-        );
+        Label heading =
+                new Label(
+                        "Search results for: "
+                                + searchQuery
+                );
 
         heading.setStyle("""
                 -fx-text-fill: white;
@@ -210,7 +448,9 @@ public class NetraApp extends Application {
                 -fx-font-weight: bold;
                 """);
 
-        VBox resultsBox = new VBox(12);
+        VBox resultsBox =
+                new VBox(12);
+
         resultsBox.setMaxWidth(850);
 
         // =========================
@@ -219,9 +459,10 @@ public class NetraApp extends Application {
 
         for (SearchResult result : results) {
 
-            Label title = new Label(
-                    result.getTitle()
-            );
+            Label title =
+                    new Label(
+                            result.getTitle()
+                    );
 
             title.setWrapText(true);
 
@@ -231,11 +472,14 @@ public class NetraApp extends Application {
                     -fx-font-weight: bold;
                     """);
 
+            // =========================
             // URL
+            // =========================
 
-            Hyperlink url = new Hyperlink(
-                    result.getUrl()
-            );
+            Hyperlink url =
+                    new Hyperlink(
+                            result.getUrl()
+                    );
 
             url.setWrapText(true);
 
@@ -250,15 +494,20 @@ public class NetraApp extends Application {
                 try {
 
                     Desktop.getDesktop().browse(
-                            new URI(result.getUrl())
+                            new URI(
+                                    result.getUrl()
+                            )
                     );
 
                 } catch (Exception ex) {
+
                     ex.printStackTrace();
                 }
             });
 
-            // Snippet
+            // =========================
+            // SNIPPET
+            // =========================
 
             String snippet =
                     SnippetGenerator.generate(
@@ -277,14 +526,17 @@ public class NetraApp extends Application {
                     -fx-font-size: 14px;
                     """);
 
-            // Result card
+            // =========================
+            // RESULT CARD
+            // =========================
 
-            VBox card = new VBox(
-                    5,
-                    title,
-                    url,
-                    description
-            );
+            VBox card =
+                    new VBox(
+                            5,
+                            title,
+                            url,
+                            description
+                    );
 
             card.setMaxWidth(850);
 
@@ -296,7 +548,9 @@ public class NetraApp extends Application {
                     -fx-padding: 16;
                     """);
 
-            resultsBox.getChildren().add(card);
+            resultsBox
+                    .getChildren()
+                    .add(card);
         }
 
         // =========================
@@ -305,17 +559,21 @@ public class NetraApp extends Application {
 
         if (results.isEmpty()) {
 
-            Label noResult = new Label(
-                    "No results found for \"" +
-                            searchQuery + "\""
-            );
+            Label noResult =
+                    new Label(
+                            "No results found for \""
+                                    + searchQuery
+                                    + "\""
+                    );
 
             noResult.setStyle("""
                     -fx-text-fill: #789486;
                     -fx-font-size: 16px;
                     """);
 
-            resultsBox.getChildren().add(noResult);
+            resultsBox
+                    .getChildren()
+                    .add(noResult);
         }
 
         // =========================
@@ -329,7 +587,9 @@ public class NetraApp extends Application {
                 new Button("Next →");
 
         Label pageLabel =
-                new Label("Page " + page);
+                new Label(
+                        "Page " + page
+                );
 
         pageLabel.setStyle("""
                 -fx-text-fill: #8CFFB8;
@@ -337,14 +597,13 @@ public class NetraApp extends Application {
                 -fx-font-weight: bold;
                 """);
 
-        // Previous is disabled on page 1
+        previous.setDisable(
+                page == 1
+        );
 
-        previous.setDisable(page == 1);
-
-        // Next is disabled when there is
-        // no next page
-
-        next.setDisable(!hasNext);
+        next.setDisable(
+                !hasNext
+        );
 
         previous.setStyle("""
                 -fx-background-color: #101815;
@@ -362,8 +621,6 @@ public class NetraApp extends Application {
                 -fx-cursor: hand;
                 """);
 
-        // Previous page
-
         previous.setOnAction(e ->
                 openSearchResults(
                         stage,
@@ -371,8 +628,6 @@ public class NetraApp extends Application {
                         page - 1
                 )
         );
-
-        // Next page
 
         next.setOnAction(e ->
                 openSearchResults(
@@ -382,14 +637,17 @@ public class NetraApp extends Application {
                 )
         );
 
-        HBox pagination = new HBox(
-                15,
-                previous,
-                pageLabel,
-                next
-        );
+        HBox pagination =
+                new HBox(
+                        15,
+                        previous,
+                        pageLabel,
+                        next
+                );
 
-        pagination.setAlignment(Pos.CENTER);
+        pagination.setAlignment(
+                Pos.CENTER
+        );
 
         // =========================
         // BACK BUTTON
@@ -413,15 +671,19 @@ public class NetraApp extends Application {
         // MAIN CONTENT
         // =========================
 
-        VBox content = new VBox(
-                20,
-                heading,
-                resultsBox,
-                pagination,
-                back
+        VBox content =
+                new VBox(
+                        20,
+                        heading,
+                        resultsBox,
+                        pagination,
+                        back
+                );
+
+        content.setAlignment(
+                Pos.TOP_CENTER
         );
 
-        content.setAlignment(Pos.TOP_CENTER);
         content.setMaxWidth(900);
 
         StackPane root =
@@ -443,7 +705,9 @@ public class NetraApp extends Application {
                 "NETRA - Search Results"
         );
 
-        stage.setScene(resultsScene);
+        stage.setScene(
+                resultsScene
+        );
     }
 
     // =========================
